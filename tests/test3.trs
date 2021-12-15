@@ -1,0 +1,7 @@
+[x, y]
+f(x, y	)	-> g(x)
+g(x) -> f(A, x)
+
+Answer: False
+
+

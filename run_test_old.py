@@ -88,13 +88,13 @@ def parse_term(str):
     return (func_name,) + params
 
 def is_const(term):
-    return isinstance(term, str) and not term in variables
+    return not term[0] in variables
 
 def is_variable(term):
-    return isinstance(term, str) and term in variables
+    return term[0] in variables
 
 def is_func(term):
-    return isinstance(term, tuple) and len(term) != 1
+    return len(term) != 1
 
 def parse_rule(s):
     terms = s.split('->')
@@ -123,39 +123,18 @@ def is_rule_useless(rule):
 
 
 def rename_vars(term, postfix):
-
-    if not isinstance(term, tuple):
-        if is_variable(term):
-            return term + postfix
-        return term
-    new_term = tuple()
     for i in range(len(term)):
         if is_variable(term[i]):
-            new_term += (term[i] + postfix,)
-        elif isinstance(term[i], tuple):
-            new_term += (rename_vars(term[i], postfix),)
-        else:
-            new_term += (term[i],)
-    return new_term
+            term[i] += postfix
+        elif isinstance(term[i], list):
+            term[i] = rename_vars(term, postfix)
 
-def rename_vars_back(term):
-
-    if not isinstance(term, tuple):
-        if term in tmp_variables:
-            return term[:-1]
-        return term
-    new_term = tuple()
-    for i in range(len(term)):
-        if term[i] in tmp_variables:
-            new_term += (term[i][:-1],)
-        elif isinstance(term[i], tuple):
-            new_term += (rename_vars_back(term[i]),)
-        else:
-            new_term += (term[i],)
-    return new_term
 
 def get_substitutions(term1, term2):
     substitutions = dict()
+    tmp_variables = []
+    for var in variables:
+        tmp_variables += [var + '1', var + '2']
 
     if is_func(term2):
         term1, term2 = term2, term1
@@ -172,35 +151,24 @@ def get_substitutions(term1, term2):
             else:
                 return False
 
-        if not term2 in tmp_variables:
+        if is_const(term2):
             return False
 
         if term2 in tmp_variables:
-            return {term2: term1}
+            return {term2[0]: term1}
 
-    if not term1 in tmp_variables and not term2 in tmp_variables:
+    if is_const(term1) and is_const(term2):
         if term1[0] != term2[0]:
             return False
         return dict()
 
     if term1 in tmp_variables:
-        return {term1: term2}
+        return {term1[0]: term2}
 
-    return {term2: term1}
-
-tmp_variables = []
-def uni_prep(term1, term2):
-    global tmp_variables
-    for var in variables:
-        tmp_variables += [var + '1', var + '2']
-    term1 = rename_vars(term1, '1')
-    term2 = rename_vars(term2, '2')
-    return term1, term2
+    return {term2[0]: term1}
 
 def is_unificate(term1, term2):
-    term1, term2 = uni_prep(term1, term2)
     subst = get_substitutions(term1, term2)
-
     return True if subst else False
 
 def apply_subst(term, subst):
@@ -214,9 +182,8 @@ def apply_subst(term, subst):
     return term
 
 def unificate(term1, term2):
-    term1, term2 = uni_prep(term1, term2)
     subst = get_substitutions(term1, term2)
-    return rename_vars_back(apply_subst(term1, subst)) if subst else False
+    return apply_subst(term1, subst) if subst else False
 
 def flatten(term):
     if len(term) > 2:
@@ -303,34 +270,9 @@ def check_lex_order():
         if is_good or is_good2:
             terminates()
 
-def is_term_equal(term1, term2):
-    if isinstance(term1, tuple) and isinstance(term2, tuple):
-        if len(term1) != len(term2):
-            return False
-        if term1[0] != term2[0]:
-            return False
-        for i in range(1, len(term1)):
-            if is_variable(term1[i]) ^ is_variable(term2[i]):
-                return False
-            if is_const(term1[i]) ^ is_const(term2[i]):
-                return False
-            if is_const(term1[i]) and is_const(term2[i]) and term2[i] != term1[i]:
-                return False
-            if isinstance(term1[i], tuple) and isinstance(term2[i], tuple):
-                if not is_term_equal(term1[i], term2[i]):
-                    return False
-    else:
-        if is_variable(term1) ^ is_variable(term2):
-            return False
-        if is_const(term1) ^ is_const(term2):
-            return False
-        if is_const(term1) and is_const(term2) and term2 != term1:
-            return False
-    return True
-
 def apply_rule(term, rule):
     ans = []
-    if is_term_equal(term, rule[0]):
+    if is_unificate(term, rule[0]):
         return [rule[1]]
     if isinstance(term, tuple):
         for i in range(1, len(term)):
@@ -343,12 +285,12 @@ def apply_rule(term, rule):
 def rule_dfs(term, depth=0):
     if depth != 0 and is_unificate(start_term_trs, term):
         return True
-    if depth > 8:
+    if depth > 5:
         return False
     for rule in rules:
         for new_term in apply_rule(term, rule):
-            if rule_dfs(new_term, depth + 1):
-                return True
+            rule_dfs(new_term, depth + 1)
+
     return False
 
 if __name__ == '__main__':
@@ -363,6 +305,7 @@ if __name__ == '__main__':
             rule = parse_rule(line)
             rules.append(rule)
 
+
         if all([is_rule_useless(rule) for rule in rules]):
             terminates()
         if is_duplicate_vars:
@@ -375,6 +318,9 @@ if __name__ == '__main__':
 
                 is_reached_limit = False
                 if srs_dfs(start_term):
+                    print(source)
+                    print(start_term)
+                    print(srs)
                     not_terminates()
                 is_any_reached_limit |= is_reached_limit
             # if not is_any_reached_limit:

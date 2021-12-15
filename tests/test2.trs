@@ -1,0 +1,7 @@
+[x, y, z]
+f(x, x) -> x
+g(y, y,		y) -> y
+h(z) -> z
+
+
+Answer: True

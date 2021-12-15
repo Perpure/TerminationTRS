@@ -1,0 +1,5 @@
+[x,y]
+f(x)->g(x, A)
+g(x, y) -> f(y)
+
+Answer: False
